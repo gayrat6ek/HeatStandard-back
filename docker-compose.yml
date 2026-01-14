@@ -42,7 +42,7 @@ services:
 
   bot:
     build:
-      context: ../HeatStandard-back
+      context: ../HeatStandard-bot
       dockerfile: Dockerfile
     container_name: heat_bot
     env_file:
