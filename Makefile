@@ -50,12 +50,12 @@ db-shell:
 
 # Run database migrations
 migrate:
-	docker-compose exec app alembic upgrade head
+	docker compose exec app alembic upgrade head
 
 # Create new migration
 migrations:
 	@read -p "Enter migration message: " msg; \
-	docker-compose exec app alembic revision --autogenerate -m "$$msg"
+	docker compose exec app alembic revision --autogenerate -m "$$msg"
 
 # Run tests
 test:
