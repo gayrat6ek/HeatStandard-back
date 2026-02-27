@@ -107,6 +107,7 @@ class IikoService:
                         f"API request failed: {response.text}",
                         status_code=response.status_code
                     )
+                print(response.json())
                 
                 return response.json()
                 
