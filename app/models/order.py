@@ -12,7 +12,7 @@ class OrderStatus(str, enum.Enum):
     """Order status enumeration."""
     pending = "pending"
     confirmed = "confirmed"
-    rejected = "rejected"
+    declined = "declined"
 
 
 # Sequence for order numbers starting from 10000
