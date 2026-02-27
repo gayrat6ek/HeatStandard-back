@@ -157,9 +157,9 @@ async def update_user(
         lang = updated_user.current_lang.value if hasattr(updated_user, 'current_lang') and updated_user.current_lang else 'ru'
         
         messages = {
-            'uz': "Sizning hisobingiz faollashtirildi! Endi buyurtma berishingiz mumkin. /start ni bosing.",
-            'ru': "Ваш аккаунт активирован! Теперь вы можете делать заказы. Нажмите /start.",
-            'en': "Your account has been activated! You can now place orders. Press /start."
+            'uz': "Sizning hisobingiz faollashtirildi! \nEndi buyurtma berishingiz mumkin. \n/start ni bosing.",
+            'ru': "Ваш аккаунт активирован! \nТеперь вы можете делать заказы. \nНажмите /start.",
+            'en': "Your account has been activated! \nYou can now place orders. \nPress /start."
         }
         text = messages.get(lang, messages['ru'])
         
