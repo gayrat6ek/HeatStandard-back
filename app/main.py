@@ -31,7 +31,7 @@ import os
 os.makedirs("static/uploads", exist_ok=True)
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/api/static", StaticFiles(directory="static"), name="static")
 
 # Add CORS middleware
 app.add_middleware(

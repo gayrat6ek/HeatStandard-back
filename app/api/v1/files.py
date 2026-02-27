@@ -27,10 +27,9 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Generate absolute URL
-        # request.base_url returns the base URL of the application (e.g., http://localhost:8002/)
+        # Generate absolute URL with /api prefix for proxy compatibility
         base_url = str(request.base_url).rstrip("/")
-        file_url = f"{base_url}/static/uploads/{filename}"
+        file_url = f"{base_url}/api/static/uploads/{filename}"
         
         return {
             "filename": filename,
