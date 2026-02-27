@@ -27,7 +27,8 @@ def get_orders(
     skip: int = 0,
     limit: int = 100,
     organization_id: Optional[UUID] = None,
-    status: Optional[OrderStatus] = None
+    status: Optional[OrderStatus] = None,
+    user_id: Optional[UUID] = None
 ) -> List[Order]:
     """Get list of orders with filters and pagination."""
     query = db.query(Order)
@@ -37,6 +38,9 @@ def get_orders(
     
     if status:
         query = query.filter(Order.status == status)
+        
+    if user_id:
+        query = query.filter(Order.user_id == user_id)
     
     return query.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
 
@@ -44,7 +48,8 @@ def get_orders(
 def get_orders_count(
     db: Session,
     organization_id: Optional[UUID] = None,
-    status: Optional[OrderStatus] = None
+    status: Optional[OrderStatus] = None,
+    user_id: Optional[UUID] = None
 ) -> int:
     """Get total count of orders."""
     query = db.query(Order)
@@ -54,6 +59,9 @@ def get_orders_count(
     
     if status:
         query = query.filter(Order.status == status)
+        
+    if user_id:
+        query = query.filter(Order.user_id == user_id)
     
     return query.count()
 

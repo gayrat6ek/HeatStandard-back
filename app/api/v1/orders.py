@@ -23,6 +23,7 @@ async def list_orders(
     skip: int = 0,
     limit: int = 100,
     organization_id: Optional[UUID] = Query(None, description="Filter by organization ID"),
+    user_id: Optional[UUID] = Query(None, description="Filter by user ID"),
     status_filter: Optional[OrderStatus] = Query(None, alias="status", description="Filter by order status"),
     db: Session = Depends(get_db)
 ):
@@ -32,6 +33,7 @@ async def list_orders(
     - **skip**: Number of records to skip (pagination)
     - **limit**: Maximum number of records to return
     - **organization_id**: Filter by organization
+    - **user_id**: Filter by user ID
     - **status**: Filter by order status
     """
     orders = crud_order.get_orders(
@@ -39,11 +41,13 @@ async def list_orders(
         skip=skip,
         limit=limit,
         organization_id=organization_id,
+        user_id=user_id,
         status=status_filter
     )
     total = crud_order.get_orders_count(
         db=db,
         organization_id=organization_id,
+        user_id=user_id,
         status=status_filter
     )
     
@@ -197,10 +201,13 @@ async def create_order(
                 detail="Organization not found"
             )
         
-        # Create order in database
-        db_order = crud_order.create_order(db=db, order=order, user_id=current_user.id)
+        # Use provided user_id or fallback to current_user
+        user_id = order_data.user_id or current_user.id
         
-        logger.info(f"Order {db_order.id} created successfully for user {current_user.id}")
+        # Create order in database
+        db_order = crud_order.create_order(db=db, order=order_data, user_id=user_id)
+        
+        logger.info(f"Order {db_order.id} created successfully for user {user_id}")
         
         return db_order
         
