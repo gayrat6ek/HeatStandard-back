@@ -33,6 +33,7 @@ class Order(Base):
     order_number = Column(Integer, order_number_seq, server_default=order_number_seq.next_value(), unique=True, nullable=False, index=True)
     iiko_order_id = Column(String, unique=True, nullable=True, index=True)
     organization_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True) # Initially nullable for migration compatibility
     customer_name = Column(String, nullable=False)
     customer_phone = Column(String, nullable=False)
     customer_email = Column(String, nullable=True)
@@ -46,6 +47,7 @@ class Order(Base):
     
     # Relationships
     organization = relationship("Organization", back_populates="orders")
+    user = relationship("User")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     
     def __repr__(self):

@@ -58,7 +58,7 @@ def get_orders_count(
     return query.count()
 
 
-def create_order(db: Session, order: OrderCreate) -> Order:
+def create_order(db: Session, order: OrderCreate, user_id: Optional[UUID] = None) -> Order:
     """Create new order with order items."""
     try:
         # Calculate total amount
@@ -67,6 +67,7 @@ def create_order(db: Session, order: OrderCreate) -> Order:
         # Create order
         db_order = Order(
             organization_id=order.organization_id,
+            user_id=user_id,
             customer_name=order.customer_name,
             customer_phone=order.customer_phone,
             customer_email=order.customer_email,
@@ -94,12 +95,42 @@ def create_order(db: Session, order: OrderCreate) -> Order:
         
         db.commit()
         db.refresh(db_order)
-        logger.info(f"Created order: {db_order.id} with {len(order.items)} items")
+        logger.info(f"Created order: {db_order.id} for user: {user_id} with {len(order.items)} items")
         return db_order
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to create order: {e}")
         raise DatabaseError(f"Failed to create order: {str(e)}")
+
+
+def get_user_orders(
+    db: Session,
+    user_id: UUID,
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[OrderStatus] = None
+) -> List[Order]:
+    """Get list of orders for a specific user."""
+    query = db.query(Order).filter(Order.user_id == user_id)
+    
+    if status:
+        query = query.filter(Order.status == status)
+    
+    return query.order_by(Order.created_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_user_orders_count(
+    db: Session,
+    user_id: UUID,
+    status: Optional[OrderStatus] = None
+) -> int:
+    """Get total count of orders for a specific user."""
+    query = db.query(Order).filter(Order.user_id == user_id)
+    
+    if status:
+        query = query.filter(Order.status == status)
+    
+    return query.count()
 
 
 def update_order(

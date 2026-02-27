@@ -50,6 +50,33 @@ async def list_orders(
     return OrderList(total=total, items=orders)
 
 
+@router.get("/me", response_model=OrderList)
+async def list_my_orders(
+    skip: int = 0,
+    limit: int = 100,
+    status_filter: Optional[OrderStatus] = Query(None, alias="status", description="Filter by order status"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of orders for the current authenticated user.
+    """
+    orders = crud_order.get_user_orders(
+        db=db,
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+        status=status_filter
+    )
+    total = crud_order.get_user_orders_count(
+        db=db,
+        user_id=current_user.id,
+        status=status_filter
+    )
+    
+    return OrderList(total=total, items=orders)
+
+
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
     order_id: UUID,
@@ -172,9 +199,9 @@ async def create_order(
             )
         
         # Create order in database
-        db_order = crud_order.create_order(db=db, order=order)
+        db_order = crud_order.create_order(db=db, order=order, user_id=current_user.id)
         
-        logger.info(f"Order {db_order.id} created successfully in database")
+        logger.info(f"Order {db_order.id} created successfully for user {current_user.id}")
         
         return db_order
         
