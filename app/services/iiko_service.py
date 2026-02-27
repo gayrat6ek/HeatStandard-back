@@ -205,9 +205,9 @@ class IikoService:
         logger.info(f"Retrieved {len(sections)} restaurant sections")
         return sections
     
-    async def create_delivery_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_order(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Create delivery order in iiko.
+        Create order in iiko via /api/1/order/create.
         
         Args:
             order_data: Order data in iiko format
@@ -215,16 +215,106 @@ class IikoService:
         Returns:
             Dict: Created order response
         """
-        logger.info("Creating delivery order in iiko")
+        logger.info("Creating order in iiko")
         
         response = await self._make_request(
             method="POST",
-            endpoint="/api/1/deliveries/create",
+            endpoint="/api/1/order/create",
             data=order_data
         )
         
-        logger.info(f"Successfully created order: {response.get('orderInfo', {}).get('id')}")
+        logger.info(f"Successfully created order in iiko: {response.get('orderInfo', {}).get('id')}")
         return response
+
+    async def send_order_to_iiko(self, order, db) -> Optional[str]:
+        """
+        Build iiko payload from a database Order and send it.
+        
+        Args:
+            order: SQLAlchemy Order object (with items relationship loaded)
+            db: Database session
+            
+        Returns:
+            str: iiko order ID if successful, None otherwise
+        """
+        from app.models.organization import Organization
+        from app.models.terminal_group import TerminalGroup
+        from app.models.product import Product
+
+        # Get organization iiko_id
+        organization = db.query(Organization).filter(
+            Organization.id == order.organization_id
+        ).first()
+        
+        if not organization or not organization.iiko_id:
+            logger.error(f"Organization not found or missing iiko_id for order {order.id}")
+            return None
+
+        # Get first active terminal group for this organization
+        terminal_group = db.query(TerminalGroup).filter(
+            TerminalGroup.organization_id == organization.id,
+            TerminalGroup.is_active == True
+        ).first()
+        
+        if not terminal_group or not terminal_group.iiko_id:
+            logger.error(f"No active terminal group found for organization {organization.id}")
+            return None
+
+        # Build order items
+        iiko_items = []
+        for item in order.items:
+            # Look up product iiko_id
+            product = db.query(Product).filter(
+                Product.id == item.product_id
+            ).first()
+            
+            if not product or not product.iiko_id:
+                logger.warning(
+                    f"Product {item.product_id} not found or missing iiko_id, "
+                    f"skipping item {item.product_name}"
+                )
+                continue
+
+            iiko_items.append({
+                "productId": product.iiko_id,
+                "type": "Product",
+                "amount": item.quantity,
+                "comment": "",
+            })
+
+        if not iiko_items:
+            logger.error(f"No valid items to send for order {order.id}")
+            return None
+
+        # Build the payload for /api/1/order/create
+        payload = {
+            "organizationId": organization.iiko_id,
+            "terminalGroupId": terminal_group.iiko_id,
+            "order": {
+                "items": iiko_items,
+                "customer": {
+                    "name": order.customer_name,
+                    "type": "regular",
+                },
+                "phone": order.customer_phone,
+                "comment": order.notes or "",
+            },
+            "createOrderSettings": {
+                "transportToFrontTimeout": 0,
+            },
+        }
+
+        logger.info(f"Sending order {order.id} to iiko with payload: {payload}")
+
+        response = await self.create_order(payload)
+
+        iiko_order_id = response.get("orderInfo", {}).get("id")
+        if iiko_order_id:
+            logger.info(f"Order {order.id} created in iiko with id: {iiko_order_id}")
+        else:
+            logger.warning(f"iiko response did not contain order id: {response}")
+
+        return iiko_order_id
 
 
 # Global service instance

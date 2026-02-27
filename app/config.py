@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # iiko API
     iiko_api_base_url: str = "https://api-ru.iiko.services"
     iiko_transport_key: str
+    iiko_origin_name: str = "HeatStandard"
     
     # Telegram
     telegram_bot_token: Optional[str] = None

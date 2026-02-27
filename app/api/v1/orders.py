@@ -77,6 +77,7 @@ async def update_order(
     Update order (PUT - full update).
     
     Allows updating order status and other details.
+    If status is set to 'confirmed', the order will be sent to iiko.
     """
     updated_order = crud_order.update_order(
         db=db,
@@ -89,6 +90,10 @@ async def update_order(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Order not found"
         )
+    
+    # Send to iiko when order is confirmed
+    if order_update.status == OrderStatus.confirmed:
+        await _send_order_to_iiko(updated_order, db)
     
     return updated_order
 
@@ -103,6 +108,7 @@ async def patch_order(
     Partially update order (PATCH).
     
     Allows updating order status, telegram_message_id, notes, etc.
+    If status is set to 'confirmed', the order will be sent to iiko.
     """
     updated_order = crud_order.update_order(
         db=db,
@@ -116,7 +122,31 @@ async def patch_order(
             detail="Order not found"
         )
     
+    # Send to iiko when order is confirmed
+    if order_update.status == OrderStatus.confirmed:
+        await _send_order_to_iiko(updated_order, db)
+    
     return updated_order
+
+
+async def _send_order_to_iiko(order, db: Session):
+    """
+    Send a confirmed order to iiko and update with the returned iiko order ID.
+    On failure, logs the error but does not revert the confirmation.
+    """
+    try:
+        iiko_order_id = await iiko_service.send_order_to_iiko(order, db)
+        if iiko_order_id:
+            crud_order.update_order_iiko_id(
+                db=db,
+                order_id=order.id,
+                iiko_order_id=iiko_order_id
+            )
+            logger.info(f"Order {order.id} sent to iiko successfully, iiko_id={iiko_order_id}")
+        else:
+            logger.warning(f"Order {order.id} confirmed but iiko did not return an order ID")
+    except Exception as e:
+        logger.error(f"Failed to send order {order.id} to iiko: {e}")
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -126,14 +156,11 @@ async def create_order(
     db: Session = Depends(get_db)
 ):
     """
-    Create a new order and send it to iiko.
+    Create a new order.
     
     Requires an active user account. Inactive users cannot place orders.
-    
-    This endpoint:
-    1. Creates the order in the local database
-    2. Sends the order to iiko API
-    3. Updates the order with iiko order ID
+    The order is created with 'pending' status. It will be sent to iiko
+    when an admin confirms it (sets status to 'confirmed').
     """
     try:
         # Verify organization exists
@@ -148,16 +175,6 @@ async def create_order(
         db_order = crud_order.create_order(db=db, order=order)
         
         logger.info(f"Order {db_order.id} created successfully in database")
-        
-        # TODO: iiko integration disabled for now
-        # When ready to integrate with iiko, uncomment the code below
-        # try:
-        #     iiko_response = await iiko_service.create_delivery_order(iiko_order_data)
-        #     iiko_order_id = iiko_response.get("orderInfo", {}).get("id")
-        #     if iiko_order_id:
-        #         db_order = crud_order.update_order_iiko_id(db=db, order_id=db_order.id, iiko_order_id=iiko_order_id)
-        # except Exception as e:
-        #     logger.error(f"Failed to send order to iiko: {e}")
         
         return db_order
         
