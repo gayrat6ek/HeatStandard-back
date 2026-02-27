@@ -11,6 +11,9 @@ import logging
 
 
 logger = logging.getLogger(__name__)
+# Public routes (no token required)
+public_router = APIRouter()
+# Protected routes (require valid token)
 router = APIRouter()
 
 
@@ -60,7 +63,7 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=Token)
+@public_router.post("/login", response_model=Token)
 async def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
@@ -162,7 +165,7 @@ async def telegram_register(
     return user
 
 
-@router.post("/telegram/login", response_model=Token)
+@public_router.post("/telegram/login", response_model=Token)
 async def telegram_login(
     login_data: TelegramLoginRequest,
     db: Session = Depends(get_db)

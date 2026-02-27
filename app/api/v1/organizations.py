@@ -8,8 +8,6 @@ from app.database import get_db
 from app.schemas.organization import OrganizationResponse, OrganizationList, OrganizationUpdate
 from app.crud import organization as crud_organization
 from app.services.iiko_service import iiko_service
-from app.api.dependencies import get_current_user
-from app.models.user import User
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +19,6 @@ async def list_organizations(
     skip: int = 0,
     limit: int = 100,
     is_active: Optional[bool] = None,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -45,7 +42,6 @@ async def list_organizations(
 @router.get("/{organization_id}", response_model=OrganizationResponse)
 async def get_organization(
     organization_id: UUID,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get organization by ID."""
@@ -64,7 +60,6 @@ async def get_organization(
 async def update_organization(
     organization_id: UUID,
     organization_update: OrganizationUpdate,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -72,8 +67,6 @@ async def update_organization(
     
     Allows updating organization details and active status.
     """
-    from app.schemas.organization import OrganizationUpdate
-    
     updated_org = crud_organization.update_organization(
         db=db,
         organization_id=organization_id,
@@ -91,7 +84,6 @@ async def update_organization(
 
 @router.post("/sync")
 async def sync_organizations(
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
