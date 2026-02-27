@@ -39,7 +39,8 @@ def get_users(
     skip: int = 0,
     limit: int = 100,
     role: Optional[UserRole] = None,
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None,
+    telegram_id: Optional[str] = None
 ) -> List[User]:
     """Get list of users with filters and pagination."""
     query = db.query(User)
@@ -49,6 +50,9 @@ def get_users(
     
     if is_active is not None:
         query = query.filter(User.is_active == is_active)
+        
+    if telegram_id:
+        query = query.filter(User.telegram_id == telegram_id)
     
     return query.offset(skip).limit(limit).all()
 
@@ -56,7 +60,8 @@ def get_users(
 def get_users_count(
     db: Session,
     role: Optional[UserRole] = None,
-    is_active: Optional[bool] = None
+    is_active: Optional[bool] = None,
+    telegram_id: Optional[str] = None
 ) -> int:
     """Get total count of users."""
     query = db.query(User)
@@ -66,6 +71,9 @@ def get_users_count(
     
     if is_active is not None:
         query = query.filter(User.is_active == is_active)
+        
+    if telegram_id:
+        query = query.filter(User.telegram_id == telegram_id)
     
     return query.count()
 

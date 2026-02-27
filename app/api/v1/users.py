@@ -20,7 +20,8 @@ async def list_users(
     skip: int = 0,
     limit: int = 100,
     role: Optional[UserRole] = Query(None, description="Filter by role"),
-    is_active: Optional[bool] = None,
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    telegram_id: Optional[str] = Query(None, description="Filter by telegram ID"),
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
@@ -31,15 +32,22 @@ async def list_users(
     - **limit**: Maximum number of records to return
     - **role**: Filter by user role
     - **is_active**: Filter by active status
+    - **telegram_id**: Filter by Telegram user ID
     """
     users = crud_user.get_users(
         db=db,
         skip=skip,
         limit=limit,
         role=role,
-        is_active=is_active
+        is_active=is_active,
+        telegram_id=telegram_id
     )
-    total = crud_user.get_users_count(db=db, role=role, is_active=is_active)
+    total = crud_user.get_users_count(
+        db=db, 
+        role=role, 
+        is_active=is_active,
+        telegram_id=telegram_id
+    )
     
     return UserList(total=total, items=users)
 
