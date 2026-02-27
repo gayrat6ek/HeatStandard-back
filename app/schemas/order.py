@@ -27,6 +27,7 @@ class OrderBase(BaseModel):
 class OrderCreate(OrderBase):
     """Schema for creating order."""
     organization_id: UUID
+    user_id: Optional[UUID] = None
     items: list[OrderItem]
 
 

@@ -178,20 +178,19 @@ async def _send_order_to_iiko(order, db: Session):
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
-    order: OrderCreate,
+    order_data: OrderCreate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
     Create a new order.
     
-    Requires an active user account. Inactive users cannot place orders.
-    The order is created with 'pending' status. It will be sent to iiko
-    when an admin confirms it (sets status to 'confirmed').
+    Orders are created with 'pending' status.
+    Uses provided user_id or falls back to current authenticated user.
     """
     try:
         # Verify organization exists
-        organization = crud_organization.get_organization(db=db, organization_id=order.organization_id)
+        organization = crud_organization.get_organization(db=db, organization_id=order_data.organization_id)
         if not organization:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
