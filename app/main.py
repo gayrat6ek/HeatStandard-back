@@ -86,5 +86,5 @@ async def root():
     return {
         "message": f"Welcome to {settings.app_name}",
         "version": settings.app_version,
-        "docs": "/docs"
+        "docs": "/api/docs"
     }

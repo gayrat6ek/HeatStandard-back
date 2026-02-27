@@ -162,7 +162,7 @@ def update_order_iiko_id(db: Session, order_id: UUID, iiko_order_id: str) -> Opt
         return None
     
     db_order.iiko_order_id = iiko_order_id
-    db_order.status = OrderStatus.sent_to_iiko
+    db_order.status = OrderStatus.confirmed
     
     db.commit()
     db.refresh(db_order)

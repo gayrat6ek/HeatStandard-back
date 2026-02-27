@@ -11,13 +11,8 @@ from app.database import Base
 class OrderStatus(str, enum.Enum):
     """Order status enumeration."""
     pending = "pending"
-    sent_to_iiko = "sent_to_iiko"
     confirmed = "confirmed"
-    in_progress = "in_progress"
-    completed = "completed"
-    cancelled = "cancelled"
-    failed = "failed"
-    declined = "declined"  # Admin declined the order
+    rejected = "rejected"
 
 
 # Sequence for order numbers starting from 10000
