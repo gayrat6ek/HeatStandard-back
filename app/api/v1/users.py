@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import Optional
 from uuid import UUID
@@ -132,6 +132,7 @@ async def create_user(
 async def update_user(
     user_id: UUID,
     user_update: UserUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
@@ -153,7 +154,7 @@ async def update_user(
         from app.utils.telegram import send_telegram_message
         
         # Determine language for message
-        lang = updated_user.current_lang.value if hasattr(updated_user, 'current_lang') else 'ru'
+        lang = updated_user.current_lang.value if hasattr(updated_user, 'current_lang') and updated_user.current_lang else 'ru'
         
         messages = {
             'uz': "Sizning hisobingiz faollashtirildi! Endi buyurtma berishingiz mumkin. /start ni bosing.",
@@ -162,9 +163,8 @@ async def update_user(
         }
         text = messages.get(lang, messages['ru'])
         
-        # Send in background (not awaiting to avoid blocking response if telegram is slow)
-        # However, FastAPI background tasks would be better. For now, await but wrap in try/except inside utility
-        await send_telegram_message(updated_user.telegram_id, text)
+        # Send in background to avoid blocking the response
+        background_tasks.add_task(send_telegram_message, updated_user.telegram_id, text)
     
     return updated_user
 
