@@ -18,6 +18,7 @@ class IikoService:
         self.transport_key = settings.iiko_transport_key
         self._access_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
+        self._resto_token: Optional[str] = None
         
     async def _get_access_token(self) -> str:
         """
@@ -154,6 +155,67 @@ class IikoService:
         
         logger.info("Successfully retrieved nomenclature")
         return data
+
+    async def _get_resto_token(self) -> str:
+        """Get Resto API token."""
+        if self._resto_token:
+            return self._resto_token
+            
+        url = f"{settings.iiko_resto_base_url}/resto/api/auth"
+        params = {
+            "login": settings.iiko_resto_login,
+            "pass": settings.iiko_resto_password
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=30.0)
+                if response.status_code != 200:
+                    raise IikoAPIError(f"Failed to get resto token: {response.text}")
+                
+                # Token is often returned as plain text or JSON string
+                token = response.text.strip(' "')
+                self._resto_token = token
+                return token
+        except Exception as e:
+            logger.error(f"Error getting resto token: {e}")
+            raise IikoAPIError(f"Resto auth failed: {str(e)}")
+
+    async def get_resto_groups(self) -> List[Dict[str, Any]]:
+        """Fetch groups from iiko Resto API."""
+        token = await self._get_resto_token()
+        url = f"{settings.iiko_resto_base_url}/resto/api/v2/entities/products/group/list"
+        params = {"key": token}
+        
+        logger.info("Fetching groups from iiko Resto API")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=60.0)
+                if response.status_code != 200:
+                    raise IikoAPIError(f"Failed to fetch resto groups: {response.text}")
+                
+                return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching resto groups: {e}")
+            raise IikoAPIError(f"Resto groups fetch failed: {str(e)}")
+
+    async def get_resto_products(self) -> List[Dict[str, Any]]:
+        """Fetch products from iiko Resto API."""
+        token = await self._get_resto_token()
+        url = f"{settings.iiko_resto_base_url}/resto/api/v2/entities/products/list"
+        params = {"key": token}
+        
+        logger.info("Fetching products from iiko Resto API")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=60.0)
+                if response.status_code != 200:
+                    raise IikoAPIError(f"Failed to fetch resto products: {response.text}")
+                
+                return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching resto products: {e}")
+            raise IikoAPIError(f"Resto products fetch failed: {str(e)}")
     
     async def get_terminal_groups(self, organization_ids: List[str]) -> List[Dict[str, Any]]:
         """

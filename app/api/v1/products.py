@@ -142,6 +142,17 @@ async def sync_products(
         synced_products = 0
         errors = []
         
+        try:
+            # Fetch groups and products from Resto API once
+            resto_groups = await iiko_service.get_resto_groups()
+            resto_products = await iiko_service.get_resto_products()
+        except Exception as e:
+            logger.error(f"Failed to fetch data from Resto API: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch data from Resto API: {str(e)}"
+            )
+            
         # Process each organization individually
         for org_iiko_id in organization_ids:
             try:
@@ -152,23 +163,18 @@ async def sync_products(
                     logger.warning(f"Organization not found in database: {org_iiko_id}")
                     continue
                 
-                # Fetch nomenclature from iiko for this organization
-                nomenclature_data = await iiko_service.get_nomenclature(org_iiko_id)
-                
                 # Build iiko_id to db_id mapping for groups
                 group_id_map = {}
                 
                 # First pass: Sync groups (need to handle parent references)
-                groups = nomenclature_data.get("groups", [])
-                
-                # Sort groups: root groups first (parentGroup is null)
-                root_groups = [g for g in groups if g.get("parentGroup") is None]
-                child_groups = [g for g in groups if g.get("parentGroup") is not None]
+                # Sort groups: root groups first (parent is null)
+                root_groups = [g for g in resto_groups if g.get("parent") is None]
+                child_groups = [g for g in resto_groups if g.get("parent") is not None]
                 
                 # Create root groups first
                 for iiko_group in root_groups:
                     try:
-                        if iiko_group.get("isDeleted"):
+                        if iiko_group.get("deleted"):
                             continue
                         
                         name = iiko_group.get("name") or "Unnamed Group"
@@ -183,8 +189,8 @@ async def sync_products(
                             description_en=iiko_group.get("description"),
                             parent_group_id=None,
                             organization_id=org.id,
-                            order=iiko_group.get("order", 0),
-                            is_included_in_menu=iiko_group.get("isIncludedInMenu", True),
+                            order=0,
+                            is_included_in_menu=True,
                             is_active=True
                         )
                         
@@ -207,10 +213,10 @@ async def sync_products(
                     
                     for iiko_group in remaining:
                         try:
-                            if iiko_group.get("isDeleted"):
+                            if iiko_group.get("deleted"):
                                 continue
                             
-                            parent_iiko_id = iiko_group.get("parentGroup")
+                            parent_iiko_id = iiko_group.get("parent")
                             
                             # Check if parent is already mapped
                             if parent_iiko_id in group_id_map:
@@ -226,8 +232,8 @@ async def sync_products(
                                     description_en=iiko_group.get("description"),
                                     parent_group_id=group_id_map[parent_iiko_id],
                                     organization_id=org.id,
-                                    order=iiko_group.get("order", 0),
-                                    is_included_in_menu=iiko_group.get("isIncludedInMenu", True),
+                                    order=0,
+                                    is_included_in_menu=True,
                                     is_active=True
                                 )
                                 
@@ -244,28 +250,24 @@ async def sync_products(
                     
                     remaining = still_remaining
                 
-                logger.info(f"Synced {synced_groups} groups for organization {org.name}")
+                logger.info(f"Synced groups for organization {org.name}")
                 
                 # Second pass: Sync products and link to groups
-                products = nomenclature_data.get("products", [])
-                
-                for iiko_product in products:
+                for iiko_product in resto_products:
                     try:
-                        if iiko_product.get("isDeleted"):
+                        if iiko_product.get("deleted"):
                             continue
                         
-                        images = iiko_product.get("imageLinks", [])
+                        # Product from Resto API doesn't have imageLinks
+                        images = []
                         name = iiko_product.get("name") or "Unnamed Product"
                         description = iiko_product.get("description") or ""
                         
-                        price = 0
-                        size_prices = iiko_product.get("sizePrices", [])
-                        if size_prices and len(size_prices) > 0:
-                            price_info = size_prices[0].get("price", {})
-                            price = price_info.get("currentPrice", 0) or 0
+                        # Price is defaultSalePrice
+                        price = iiko_product.get("defaultSalePrice", 0) or 0
                         
                         # Get group_id from mapping
-                        parent_group_iiko_id = iiko_product.get("parentGroup")
+                        parent_group_iiko_id = iiko_product.get("parent")
                         group_id = group_id_map.get(parent_group_iiko_id) if parent_group_iiko_id else None
                         
                         product_data = {
@@ -289,7 +291,7 @@ async def sync_products(
                         logger.error(f"Error syncing product {iiko_product.get('id')}: {e}")
                         errors.append(str(e))
                 
-                logger.info(f"Synced {len(products)} products for organization {org.name}")
+                logger.info(f"Synced products for organization {org.name}")
                 
             except Exception as e:
                 logger.error(f"Error syncing organization {org_iiko_id}: {e}")
