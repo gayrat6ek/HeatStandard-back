@@ -21,7 +21,7 @@ async def list_products(
     limit: int = 100,
     organization_id: Optional[UUID] = Query(None, description="Filter by organization ID"),
     group_id: Optional[UUID] = Query(None, description="Filter by group ID"),
-    is_active: Optional[bool] = None,
+    is_active: Optional[bool] = Query(True, description="Filter by active status"),
     search: Optional[str] = Query(None, description="Search by name"),
     db: Session = Depends(get_db)
 ):
@@ -174,10 +174,8 @@ async def sync_products(
                 # Create root groups first
                 for iiko_group in root_groups:
                     try:
-                        if iiko_group.get("deleted"):
-                            continue
-                        
                         name = iiko_group.get("name") or "Unnamed Group"
+                        is_active = not iiko_group.get("deleted", False)
                         
                         group_data = GroupCreate(
                             iiko_id=iiko_group.get("id"),
@@ -190,8 +188,8 @@ async def sync_products(
                             parent_group_id=None,
                             organization_id=org.id,
                             order=0,
-                            is_included_in_menu=True,
-                            is_active=True
+                            is_included_in_menu=is_active,
+                            is_active=is_active
                         )
                         
                         db_group = crud_group.upsert_group(db=db, group=group_data)
@@ -213,14 +211,12 @@ async def sync_products(
                     
                     for iiko_group in remaining:
                         try:
-                            if iiko_group.get("deleted"):
-                                continue
-                            
                             parent_iiko_id = iiko_group.get("parent")
                             
                             # Check if parent is already mapped
                             if parent_iiko_id in group_id_map:
                                 name = iiko_group.get("name") or "Unnamed Group"
+                                is_active = not iiko_group.get("deleted", False)
                                 
                                 group_data = GroupCreate(
                                     iiko_id=iiko_group.get("id"),
@@ -233,8 +229,8 @@ async def sync_products(
                                     parent_group_id=group_id_map[parent_iiko_id],
                                     organization_id=org.id,
                                     order=0,
-                                    is_included_in_menu=True,
-                                    is_active=True
+                                    is_included_in_menu=is_active,
+                                    is_active=is_active
                                 )
                                 
                                 db_group = crud_group.upsert_group(db=db, group=group_data)
@@ -255,8 +251,7 @@ async def sync_products(
                 # Second pass: Sync products and link to groups
                 for iiko_product in resto_products:
                     try:
-                        if iiko_product.get("deleted"):
-                            continue
+                        is_active = not iiko_product.get("deleted", False)
                         
                         # Product from Resto API doesn't have imageLinks
                         images = []
@@ -282,6 +277,7 @@ async def sync_products(
                             "images": images,
                             "organization_id": org.id,
                             "group_id": group_id,
+                            "is_active": is_active,
                         }
                         
                         crud_product.upsert_product(db=db, product_data=product_data)

@@ -22,6 +22,7 @@ class ProductCreate(ProductBase):
     iiko_id: str
     group_id: Optional[UUID] = None
     organization_id: UUID
+    is_active: bool = True
 
 
 class ProductUpdate(BaseModel):

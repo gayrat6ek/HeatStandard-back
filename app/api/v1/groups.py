@@ -17,6 +17,7 @@ async def list_groups(
     limit: int = 100,
     parent_id: Optional[str] = Query(None, description="Parent group ID. Use 'null' for root groups."),
     organization_id: Optional[UUID] = Query(None, description="Filter by organization ID"),
+    include_inactive: bool = Query(False, description="Include inactive groups"),
     db: Session = Depends(get_db)
 ):
     """
@@ -44,14 +45,16 @@ async def list_groups(
         limit=limit,
         parent_group_id=parent_group_id,
         organization_id=organization_id,
-        root_only=root_only
+        root_only=root_only,
+        include_inactive=include_inactive
     )
     
     total = crud_group.get_groups_count(
         db=db,
         parent_group_id=parent_group_id,
         organization_id=organization_id,
-        root_only=root_only
+        root_only=root_only,
+        include_inactive=include_inactive
     )
     
     return GroupList(total=total, items=groups)
