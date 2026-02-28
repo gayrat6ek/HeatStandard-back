@@ -44,6 +44,7 @@ class GroupResponse(GroupBase):
     iiko_id: str
     parent_group_id: Optional[UUID] = None
     organization_id: UUID
+    active_products_count: int = 0
     created_at: datetime
     updated_at: datetime
     

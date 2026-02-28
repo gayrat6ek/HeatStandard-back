@@ -1,10 +1,11 @@
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Integer
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Integer, select, func, and_
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, column_property
 from datetime import datetime
 import uuid
 
 from app.database import Base
+from app.models.product import Product
 
 
 class Group(Base):
@@ -44,6 +45,19 @@ class Group(Base):
     parent = relationship("Group", remote_side=[id], back_populates="children")
     children = relationship("Group", back_populates="parent", cascade="all, delete-orphan")
     products = relationship("Product", back_populates="group", cascade="all, delete-orphan")
+    
+    # Active products count property
+    active_products_count = column_property(
+        select(func.count(Product.id))
+        .where(
+            and_(
+                Product.group_id == id,
+                Product.is_active == True
+            )
+        )
+        .correlate_except(Product)
+        .scalar_subquery()
+    )
     
     def __repr__(self):
         return f"<Group(id={self.id}, name_en={self.name_en}, parent_id={self.parent_group_id})>"
