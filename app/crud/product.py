@@ -132,6 +132,9 @@ def upsert_product(db: Session, product_data: dict) -> Product:
         # Update existing
         for key, value in product_data.items():
             if key != "id" and hasattr(existing, key):
+                # Don't overwrite existing images with an empty list
+                if key == "images" and not value and getattr(existing, "images"):
+                    continue
                 setattr(existing, key, value)
         db.commit()
         db.refresh(existing)

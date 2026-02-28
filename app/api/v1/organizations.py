@@ -97,11 +97,13 @@ async def sync_organizations(
         
         synced_count = 0
         errors = []
+        organization_ids_for_tg_sync = []
         
         for iiko_org in iiko_organizations:
             try:
+                org_iiko_id = iiko_org.get("id")
                 org_data = {
-                    "iiko_id": iiko_org.get("id"),
+                    "iiko_id": org_iiko_id,
                     "name": iiko_org.get("name"),
                     "country": iiko_org.get("country"),
                     "restaurant_address": iiko_org.get("restaurantAddress"),
@@ -111,15 +113,28 @@ async def sync_organizations(
                 
                 crud_organization.upsert_organization(db=db, organization_data=org_data)
                 synced_count += 1
+                organization_ids_for_tg_sync.append(org_iiko_id)
                 
             except Exception as e:
                 logger.error(f"Error syncing organization {iiko_org.get('id')}: {e}")
                 errors.append(str(e))
         
+        from app.api.v1.terminal_groups import sync_terminal_groups
+        
+        # After successfully syncing all organizations, sync their terminal groups
+        tg_sync_result = None
+        if organization_ids_for_tg_sync:
+            try:
+                tg_sync_result = await sync_terminal_groups(organization_ids=organization_ids_for_tg_sync, db=db)
+            except Exception as e:
+                logger.error(f"Failed to auto-sync terminal groups: {e}")
+                errors.append(f"Auto-sync terminal groups failed: {str(e)}")
+        
         return {
             "message": f"Successfully synced {synced_count} organizations",
             "synced_count": synced_count,
             "total_from_iiko": len(iiko_organizations),
+            "terminal_groups_sync": tg_sync_result,
             "errors": errors if errors else None
         }
         
