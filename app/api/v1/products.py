@@ -166,6 +166,10 @@ async def sync_products(
                 # Build iiko_id to db_id mapping for groups
                 group_id_map = {}
                 
+                # Track active IDs for soft deletion of missing items
+                active_group_ids = []
+                active_product_ids = []
+                
                 # First pass: Sync groups (need to handle parent references)
                 # Sort groups: root groups first (parent is null)
                 root_groups = [g for g in resto_groups if g.get("parent") is None]
@@ -194,6 +198,7 @@ async def sync_products(
                         
                         db_group = crud_group.upsert_group(db=db, group=group_data)
                         group_id_map[iiko_group.get("id")] = db_group.id
+                        active_group_ids.append(iiko_group.get("id"))
                         synced_groups += 1
                         
                     except Exception as e:
@@ -235,6 +240,7 @@ async def sync_products(
                                 
                                 db_group = crud_group.upsert_group(db=db, group=group_data)
                                 group_id_map[iiko_group.get("id")] = db_group.id
+                                active_group_ids.append(iiko_group.get("id"))
                                 synced_groups += 1
                             else:
                                 # Parent not yet created, defer
@@ -245,6 +251,10 @@ async def sync_products(
                             errors.append(str(e))
                     
                     remaining = still_remaining
+                
+                # Deactivate groups that were not in the API response
+                if active_group_ids:
+                    crud_group.mark_missing_groups_inactive(db=db, organization_id=org.id, active_iiko_ids=active_group_ids)
                 
                 logger.info(f"Synced groups for organization {org.name}")
                 
@@ -281,11 +291,16 @@ async def sync_products(
                         }
                         
                         crud_product.upsert_product(db=db, product_data=product_data)
+                        active_product_ids.append(iiko_product.get("id"))
                         synced_products += 1
                         
                     except Exception as e:
                         logger.error(f"Error syncing product {iiko_product.get('id')}: {e}")
                         errors.append(str(e))
+                
+                # Deactivate products that were not in the API response
+                if active_product_ids:
+                    crud_product.mark_missing_products_inactive(db=db, organization_id=org.id, active_iiko_ids=active_product_ids)
                 
                 logger.info(f"Synced products for organization {org.name}")
                 

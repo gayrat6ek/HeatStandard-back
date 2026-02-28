@@ -156,3 +156,26 @@ def delete_product(db: Session, product_id: UUID) -> bool:
     db.commit()
     logger.info(f"Deleted product: {db_product.name_ru}")
     return True
+
+
+def mark_missing_products_inactive(db: Session, organization_id: UUID, active_iiko_ids: List[str]) -> int:
+    """Mark products as inactive if they are not in the provided list of active iiko_ids."""
+    from sqlalchemy import update
+    
+    # Update products that belong to the organization and are NOT in the active_iiko_ids list
+    stmt = (
+        update(Product)
+        .where(Product.organization_id == organization_id)
+        .where(Product.iiko_id.not_in(active_iiko_ids))
+        .where(Product.is_active == True)
+        .values(is_active=False)
+    )
+    
+    result = db.execute(stmt)
+    db.commit()
+    
+    deactivated_count = result.rowcount
+    if deactivated_count > 0:
+        logger.info(f"Deactivated {deactivated_count} products for organization {organization_id}")
+        
+    return deactivated_count

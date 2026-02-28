@@ -164,3 +164,26 @@ def delete_group(db: Session, group_id: UUID) -> bool:
     
     logger.info(f"Deleted group: {group_id}")
     return True
+
+
+def mark_missing_groups_inactive(db: Session, organization_id: UUID, active_iiko_ids: List[str]) -> int:
+    """Mark groups as inactive if they are not in the provided list of active iiko_ids."""
+    from sqlalchemy import update
+    
+    # Update groups that belong to the organization and are NOT in the active_iiko_ids list
+    stmt = (
+        update(Group)
+        .where(Group.organization_id == organization_id)
+        .where(Group.iiko_id.not_in(active_iiko_ids))
+        .where(Group.is_active == True)
+        .values(is_active=False)
+    )
+    
+    result = db.execute(stmt)
+    db.commit()
+    
+    deactivated_count = result.rowcount
+    if deactivated_count > 0:
+        logger.info(f"Deactivated {deactivated_count} groups for organization {organization_id}")
+        
+    return deactivated_count
